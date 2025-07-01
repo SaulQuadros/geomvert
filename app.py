@@ -6,7 +6,12 @@ st.set_page_config(page_title="Concordância Vertical", layout="centered")
 
 st.title("Perfil Longitudinal: Concordância Vertical")
 
-# Entradas do usuário
+# Identificação do projeto
+st.sidebar.title("Identificação")
+project_name = st.sidebar.text_input("Projeto", "")
+user_name = st.sidebar.text_input("Nome do Usuário", "")
+
+# Parâmetros da curva
 st.sidebar.header("Parâmetros da Curva")
 tipo = st.sidebar.selectbox("Tipo de curva", ["Convexa", "Côncava"])
 Z_I = st.sidebar.number_input("Cota do PIV (I) [m]", value=200.00, step=0.01)
@@ -61,7 +66,7 @@ ax.scatter([x_A, x_B, x_I], [Z_A, Z_B, Z_I_parab], color='red', zorder=5)
 ax.scatter([x_V], [Z_V], color='blue', zorder=6, marker='*', s=180)
 
 # Labels dos pontos A e B
-y_offset = 0.4 if curva_tipo=="Convexa" else -0.4
+y_offset = 0.4 if curva_tipo == "Convexa" else -0.4
 ax.text(x_A, Z_A + y_offset, "A (PCV)", ha='center', fontsize=11, fontweight='bold')
 ax.text(x_B, Z_B + y_offset, "B (PTV)", ha='center', fontsize=11, fontweight='bold')
 
@@ -85,9 +90,9 @@ else:
         ax.text(x_I + dx, Z_I_parab - 0.7, "I (PIV)", ha='center', fontsize=11, fontweight='bold')
 
 # Inclinações
-ax.text(x_I/2, Z_A + i1*(x_I/2) + (0.7 if curva_tipo=="Convexa" else -0.7),
+ax.text(x_I/2, Z_A + i1*(x_I/2) + (0.7 if curva_tipo == "Convexa" else -0.7),
         f"$i_1$ = {i1*100:+.2f}%", ha='center', fontsize=10, color='gray')
-ax.text((x_I+L)/2, Z_B + i2*(((x_I+L)/2-L)) + (0.7 if curva_tipo=="Convexa" else -0.7),
+ax.text((x_I + L)/2, Z_B + i2 * (((x_I + L)/2 - L)) + (0.7 if curva_tipo == "Convexa" else -0.7),
         f"$i_2$ = {i2*100:+.2f}%", ha='center', fontsize=10, color='orange')
 
 ax.set_xlabel('x (m)')
@@ -102,11 +107,13 @@ st.pyplot(fig)
 st.subheader(f"Resultados ({curva_tipo})")
 col1, col2 = st.columns(2)
 with col1:
+    st.markdown(f"**Projeto:** {project_name}")
+    st.markdown(f"**Usuário:** {user_name}")
     st.markdown(f"**Desnível (g)** = i₁ - i₂ = `{g:.5f}`")
     st.markdown(f"**Flecha vertical (e)** = `{e:.4f} m`")
     st.markdown(f"**Cota de A (PCV)** = `{Z_A:.3f} m`")
-    st.markdown(f"**Cota de B (PTV)** = `{Z_B:.3f} m`")
 with col2:
+    st.markdown(f"**Cota de B (PTV)** = `{Z_B:.3f} m`")
     st.markdown(f"**Cota do PIV na parábola** = `{Z_I_parab:.3f} m`")
     st.markdown(f"**Coordenada do vértice**: x = `{x_V:.3f} m`")
     st.markdown(f"**Cota do vértice**: Z = `{Z_V:.3f} m`")
