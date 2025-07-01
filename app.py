@@ -1,6 +1,8 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+from fpdf import FPDF
+from io import BytesIO
 
 st.set_page_config(page_title="Concordância Vertical", layout="centered")
 
@@ -66,7 +68,7 @@ ax.scatter([x_A, x_B, x_I], [Z_A, Z_B, Z_I_parab], color='red', zorder=5)
 ax.scatter([x_V], [Z_V], color='blue', zorder=6, marker='*', s=180)
 
 # Labels dos pontos A e B
-y_offset = 0.4 if curva_tipo == "Convexa" else -0.4
+y_offset = 0.4 if curva_tipo=="Convexa" else -0.4
 ax.text(x_A, Z_A + y_offset, "A (PCV)", ha='center', fontsize=11, fontweight='bold')
 ax.text(x_B, Z_B + y_offset, "B (PTV)", ha='center', fontsize=11, fontweight='bold')
 
@@ -117,3 +119,40 @@ with col2:
     st.markdown(f"**Cota do PIV na parábola** = `{Z_I_parab:.3f} m`")
     st.markdown(f"**Coordenada do vértice**: x = `{x_V:.3f} m`")
     st.markdown(f"**Cota do vértice**: Z = `{Z_V:.3f} m`")
+
+# Função para criar PDF
+def create_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"Projeto: {project_name}", ln=True)
+    pdf.cell(0, 10, f"Usuário: {user_name}", ln=True)
+    pdf.ln(5)
+    pdf.cell(0, 8, "Parâmetros de entrada:", ln=True)
+    pdf.cell(0, 8, f"Tipo de curva: {curva_tipo}", ln=True)
+    pdf.cell(0, 8, f"Cota do PIV: {Z_I} m", ln=True)
+    pdf.cell(0, 8, f"i1: {i1_valor:.2f}%", ln=True)
+    pdf.cell(0, 8, f"i2: {i2_valor:.2f}%", ln=True)
+    pdf.cell(0, 8, f"Comprimento L: {L} m", ln=True)
+    pdf.ln(5)
+    pdf.cell(0, 8, "Resultados:", ln=True)
+    pdf.cell(0, 8, f"Desnível (g): {g:.5f}", ln=True)
+    pdf.cell(0, 8, f"Flecha (e): {e:.4f} m", ln=True)
+    pdf.cell(0, 8, f"Cota A (PCV): {Z_A:.3f} m", ln=True)
+    pdf.cell(0, 8, f"Cota do PIV (parábola): {Z_I_parab:.3f} m", ln=True)
+    pdf.cell(0, 8, f"Cota B (PTV): {Z_B:.3f} m", ln=True)
+    pdf.cell(0, 8, f"Vértice: x={x_V:.3f} m, Z={Z_V:.3f} m", ln=True)
+    pdf.ln(5)
+    # inserir gráfico
+    buf = BytesIO()
+    fig.savefig(buf, format='PNG')
+    buf.seek(0)
+    pdf.image(buf, x=10, y=None, w=pdf.w - 20)
+    pdf_out = BytesIO()
+    pdf.output(pdf_out)
+    pdf_out.seek(0)
+    return pdf_out
+
+# Botão de download de PDF
+pdf_bytes = create_pdf()
+st.sidebar.download_button("Salvar PDF", data=pdf_bytes, file_name="perfil_concordancia.pdf", mime="application/pdf")
