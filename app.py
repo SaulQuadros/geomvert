@@ -1,30 +1,15 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from fpdf import FPDF
-from io import BytesIO
-import math
 
 st.set_page_config(page_title="Concordância Vertical", layout="centered")
 
 st.title("Perfil Longitudinal: Concordância Vertical")
 
-# Identificação do projeto
-st.sidebar.title("Identificação")
-project_name = st.sidebar.text_input("Projeto", "")
-user_name = st.sidebar.text_input("Nome do Usuário", "")
-
-# Parâmetros da curva
+# Entradas do usuário
 st.sidebar.header("Parâmetros da Curva")
 tipo = st.sidebar.selectbox("Tipo de curva", ["Convexa", "Côncava"])
 Z_I = st.sidebar.number_input("Cota do PIV (I) [m]", value=200.00, step=0.01)
-
-# Estaca do PIV para cálculo de tabela de estacas
-st.sidebar.subheader("Estaca do PIV")
-station_i = st.sidebar.number_input("Estaca inteira (número)", value=30, step=1, min_value=0)
-offset_i = st.sidebar.number_input("Offset da estaca [m]", value=12.5, step=0.1, min_value=0.0)
-
 i1_valor = st.sidebar.number_input("Inclinação inicial i₁ [%]", value=2.50, step=0.01, min_value=0.0)
 i2_valor = st.sidebar.number_input("Inclinação final i₂ [%]", value=1.00, step=0.01, min_value=0.0)
 L = st.sidebar.number_input("Comprimento da curva L [m]", value=120.0, step=1.0, min_value=1.0)
@@ -80,7 +65,7 @@ y_offset = 0.4 if curva_tipo=="Convexa" else -0.4
 ax.text(x_A, Z_A + y_offset, "A (PCV)", ha='center', fontsize=11, fontweight='bold')
 ax.text(x_B, Z_B + y_offset, "B (PTV)", ha='center', fontsize=11, fontweight='bold')
 
-# Posicionamento inteligente dos labels V e I
+# Posicionamento inteligente dos labels V (Vértice) e I (PIV)
 dx = L * 0.03
 dy = (abs(Z_V - Z_I_parab) + 0.6) * (1 if curva_tipo == "Convexa" else -1)
 
@@ -100,9 +85,9 @@ else:
         ax.text(x_I + dx, Z_I_parab - 0.7, "I (PIV)", ha='center', fontsize=11, fontweight='bold')
 
 # Inclinações
-ax.text(x_I/2, Z_A + i1*(x_I/2) + (0.7 if curva_tipo == "Convexa" else -0.7),
+ax.text(x_I/2, Z_A + i1*(x_I/2) + (0.7 if curva_tipo=="Convexa" else -0.7),
         f"$i_1$ = {i1*100:+.2f}%", ha='center', fontsize=10, color='gray')
-ax.text((x_I + L)/2, Z_B + i2 * (((x_I + L)/2 - L)) + (0.7 if curva_tipo == "Convexa" else -0.7),
+ax.text((x_I+L)/2, Z_B + i2*(((x_I+L)/2-L)) + (0.7 if curva_tipo=="Convexa" else -0.7),
         f"$i_2$ = {i2*100:+.2f}%", ha='center', fontsize=10, color='orange')
 
 ax.set_xlabel('x (m)')
@@ -117,144 +102,11 @@ st.pyplot(fig)
 st.subheader(f"Resultados ({curva_tipo})")
 col1, col2 = st.columns(2)
 with col1:
-    st.markdown(f"**Projeto:** {project_name}")
-    st.markdown(f"**Usuário:** {user_name}")
     st.markdown(f"**Desnível (g)** = i₁ - i₂ = `{g:.5f}`")
     st.markdown(f"**Flecha vertical (e)** = `{e:.4f} m`")
     st.markdown(f"**Cota de A (PCV)** = `{Z_A:.3f} m`")
-with col2:
     st.markdown(f"**Cota de B (PTV)** = `{Z_B:.3f} m`")
+with col2:
     st.markdown(f"**Cota do PIV na parábola** = `{Z_I_parab:.3f} m`")
     st.markdown(f"**Coordenada do vértice**: x = `{x_V:.3f} m`")
     st.markdown(f"**Cota do vértice**: Z = `{Z_V:.3f} m`")
-
-# Tabela de estacas entre A e B (inclui PCV, PIV e PTV com cores)
-# Cálculo das chainages
-stationI_m = station_i * 20 + offset_i
-PCV_chain = stationI_m - L/2
-PTV_chain = stationI_m + L/2
-
-# Estações + offsets de PCV e PTV
-pcv_station = int(math.floor(PCV_chain/20))
-pcv_offset  = PCV_chain - pcv_station*20
-ptv_station = int(math.floor(PTV_chain/20))
-ptv_offset  = PTV_chain - ptv_station*20
-
-rows = []
-
-# 1) Linha PCV (cor vermelha)
-rows.append({
-    "Estaca": f"{pcv_station}+{pcv_offset:.2f}",
-    "Chainage (m)": round(PCV_chain,3),
-    "Dist. desde A (m)": 0.0,
-    "Cota (m)": round(Z_A,3),
-    "Tipo": "PCV"
-})
-
-# 2) Estacas inteiras entre PCV e antes da estaca inteira de I (PIV)
-start_int = math.ceil(PCV_chain/20)
-end_int = station_i if offset_i > 0 else station_i - 1
-for s in range(start_int, end_int+1):
-    chain = s*20
-    x = chain - PCV_chain
-    y = i1 * x - (g/(2*L)) * x**2
-    Z = Z_A + y
-    rows.append({
-        "Estaca": f"{s}+00",
-        "Chainage (m)": chain,
-        "Dist. desde A (m)": round(x,3),
-        "Cota (m)": round(Z,3),
-        "Tipo": ""
-    })
-
-# 3) Linha PIV (cor azul)
-rows.append({
-    "Estaca": f"{station_i}+{offset_i:.2f}",
-    "Chainage (m)": round(stationI_m,3),
-    "Dist. desde A (m)": round(L/2,3),
-    "Cota (m)": round(Z_I_parab,3),
-    "Tipo": "PIV"
-})
-
-# 4) Estacas inteiras entre PIV e PTV
-for s in range(station_i+1, math.floor(PTV_chain/20)+1):
-    chain = s*20
-    x = chain - PCV_chain
-    y = i1 * x - (g/(2*L)) * x**2
-    Z = Z_A + y
-    rows.append({
-        "Estaca": f"{s}+00",
-        "Chainage (m)": chain,
-        "Dist. desde A (m)": round(x,3),
-        "Cota (m)": round(Z,3),
-        "Tipo": ""
-    })
-
-# 5) Linha PTV (cor vermelha)
-rows.append({
-    "Estaca": f"{ptv_station}+{ptv_offset:.2f}",
-    "Chainage (m)": round(PTV_chain,3),
-    "Dist. desde A (m)": round(L,3),
-    "Cota (m)": round(Z_B,3),
-    "Tipo": "PTV"
-})
-
-df = pd.DataFrame(rows)
-
-# Função de estilo: PCV e PTV em vermelho, PIV em azul
-def highlight(row):
-    if row["Tipo"] in ["PCV","PTV"]:
-        return ['color: red']*len(df.columns)
-    if row["Tipo"] == "PIV":
-        return ['color: blue']*len(df.columns)
-    return ['']*len(df.columns)
-
-df_style = df.style.apply(highlight, axis=1)
-
-st.subheader("Tabela de Estacas")
-st.dataframe(df_style)
-
-# Função para criar PDF
-def create_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    # Identificação
-    pdf.cell(0, 10, f"Projeto: {project_name}", ln=True)
-    pdf.cell(0, 10, f"Usuário: {user_name}", ln=True)
-    pdf.ln(5)
-    # Parâmetros
-    pdf.cell(0, 8, "Parâmetros de entrada:", ln=True)
-    pdf.cell(0, 8, f"Tipo de curva: {curva_tipo}", ln=True)
-    pdf.cell(0, 8, f"Cota do PIV: {Z_I} m", ln=True)
-    pdf.cell(0, 8, f"Estaca PIV: {station_i}+{offset_i:.2f} m", ln=True)
-    pdf.cell(0, 8, f"i1: {i1_valor:.2f}%", ln=True)
-    pdf.cell(0, 8, f"i2: {i2_valor:.2f}%", ln=True)
-    pdf.cell(0, 8, f"Comprimento L: {L} m", ln=True)
-    pdf.ln(5)
-    # Resultados
-    pdf.cell(0, 8, "Resultados:", ln=True)
-    pdf.cell(0, 8, f"Desnível (g): {g:.5f}", ln=True)
-    pdf.cell(0, 8, f"Flecha (e): {e:.4f} m", ln=True)
-    pdf.cell(0, 8, f"Cota A (PCV): {Z_A:.3f} m", ln=True)
-    pdf.cell(0, 8, f"Cota do PIV: {Z_I_parab:.3f} m", ln=True)
-    pdf.cell(0, 8, f"Cota B (PTV): {Z_B:.3f} m", ln=True)
-    pdf.cell(0, 8, f"Vértice: x={x_V:.3f} m, Z={Z_V:.3f} m", ln=True)
-    pdf.ln(5)
-    # Tabela de estacas
-    pdf.cell(0, 8, "Tabela de Estacas:", ln=True)
-    for row in rows:
-        pdf.cell(0, 6, f"{row['Estaca']}: chain={row['Chainage (m)']}m, distancia={row['Dist. desde A (m)']}m, Z={row['Cota (m)']}m", ln=True)
-    pdf.ln(5)
-    # Gráfico
-    buf = BytesIO()
-    fig.savefig(buf, format='PNG')
-    buf.seek(0)
-    pdf.image(buf, x=10, w=pdf.w-20)
-    out = BytesIO()
-    pdf.output(out)
-    out.seek(0)
-    return out
-
-pdf_bytes = create_pdf()
-st.sidebar.download_button("Salvar PDF", data=pdf_bytes, file_name="perfil_concordancia.pdf", mime="application/pdf")
