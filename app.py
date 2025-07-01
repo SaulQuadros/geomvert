@@ -117,6 +117,7 @@ def create_pdf():
     fig.savefig(buf, format='PNG'); buf.seek(0)
     pdf.image(buf, x=pdf.l_margin, w=pdf.w - 2*pdf.l_margin)
     pdf.ln(5)
+    pdf.add_page()
     # Tabela com bordas após a imagem
     pdf.cell(0, 8, "Tabela de Estacas:", ln=True)
     table_w = pdf.w - 2*pdf.l_margin
