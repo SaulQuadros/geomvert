@@ -74,23 +74,41 @@ pcv_s, pcv_o = divmod(PCV_chain, 20)
 ptv_s, ptv_o = divmod(PTV_chain, 20)
 
 rows = []
-rows.append({"Estaca":f"{int(pcv_s)}+{pcv_o:.2f}","Posição":round(PCV_chain,3),"Dist_A":0.0,"Cota":round(Z_A,3),"Tipo":"PCV"})
-start_i = math.ceil(PCV_chain/20); end_i = station_i if offset_i>0 else station_i-1
-for s in range(start_i,end_i+1):
+# Linha PCV
+rows.append({"Estaca":f"{int(pcv_s)}+{pcv_o:.2f}",
+             "Posição":round(PCV_chain,3),
+             "Dist_A":0.0,"Cota":round(Z_A,3),"Tipo":"PCV"})
+# Estacas inteiras entre PCV e PIV (excluindo PCV e PIV)
+start_int = int(pcv_s) + 1
+end_int = station_i - (1 if offset_i == 0 else 0)
+for s in range(start_int, end_int+1):
     ch = s*20; dx = ch-PCV_chain
     z = Z_A + (i1*dx - (g/(2*L))*dx**2)
-    rows.append({"Estaca":f"{s}+00","Posição":ch,"Dist_A":round(dx,3),"Cota":round(z,3),"Tipo":""})
-rows.append({"Estaca":f"{station_i}+{offset_i:.2f}","Posição":round(stationI_m,3),"Dist_A":round(L/2,3),"Cota":round(Z_I_parab,3),"Tipo":"PIV"})
-for s in range(station_i+1, math.floor(PTV_chain/20)+1):
+    rows.append({"Estaca":f"{s}+00","Posição":ch,"Dist_A":round(dx,3),
+                 "Cota":round(z,3),"Tipo":""})
+# Linha PIV
+rows.append({"Estaca":f"{station_i}+{offset_i:.2f}",
+             "Posição":round(stationI_m,3),
+             "Dist_A":round(L/2,3),"Cota":round(Z_I_parab,3),"Tipo":"PIV"})
+# Estacas inteiras entre PIV e PTV (excluindo PIV and PTV)
+start2 = station_i + 1
+end2 = int(ptv_s) - (1 if ptv_o == 0 else 0)
+for s in range(start2, end2+1):
     ch = s*20; dx = ch-PCV_chain
     z = Z_A + (i1*dx - (g/(2*L))*dx**2)
-    rows.append({"Estaca":f"{s}+00","Posição":ch,"Dist_A":round(dx,3),"Cota":round(z,3),"Tipo":""})
-rows.append({"Estaca":f"{int(ptv_s)}+{ptv_o:.2f}","Posição":round(PTV_chain,3),"Dist_A":round(L,3),"Cota":round(Z_B,3),"Tipo":"PTV"})
+    rows.append({"Estaca":f"{s}+00","Posição":ch,"Dist_A":round(dx,3),
+                 "Cota":round(z,3),"Tipo":""})
+# Linha PTV
+rows.append({"Estaca":f"{int(ptv_s)}+{ptv_o:.2f}",
+             "Posição":round(PTV_chain,3),
+             "Dist_A":round(L,3),"Cota":round(Z_B,3),"Tipo":"PTV"})
 
 df = pd.DataFrame(rows)
 def style_row(r):
-    if r.Tipo in ["PCV","PTV"]: return ['color:red']*5
-    if r.Tipo=="PIV": return ['color:blue']*5
+    if r.Tipo in ["PCV","PTV"]:
+        return ['color:red']*5
+    if r.Tipo == "PIV":
+        return ['color:blue']*5
     return ['']*5
 df_style = df.style.apply(style_row, axis=1)
 
@@ -104,12 +122,15 @@ def create_pdf():
     pdf.cell(0, 10, f"Usuário: {user_name}", ln=True)
     pdf.ln(5)
     pdf.cell(0, 8, "Parâmetros de entrada:", ln=True)
-    for line in [f"Tipo: {tipo}", f"Estaca PIV: {station_i}+{offset_i:.2f}", f"i1: {i1_valor:.2f}%", f"i2: {i2_valor:.2f}%", f"L: {L} m"]:
+    for line in [f"Tipo: {tipo}", f"Estaca PIV: {station_i}+{offset_i:.2f}", 
+                 f"i1: {i1_valor:.2f}%", f"i2: {i2_valor:.2f}%", f"L: {L} m"]:
         pdf.cell(0, 8, line, ln=True)
     pdf.ln(5)
     # Resultados antes da tabela
     pdf.cell(0, 8, "Resultados:", ln=True)
-    for line in [f"Desnível (g): {g:.5f}", f"Flecha (e): {e:.4f} m", f"Cota A: {Z_A:.3f} m", f"Cota PIV: {Z_I_parab:.3f} m", f"Cota B: {Z_B:.3f} m", f"Vértice x: {x_V:.3f} m, Z: {Z_V:.3f} m"]:
+    for line in [f"Desnível (g): {g:.5f}", f"Flecha (e): {e:.4f} m",
+                 f"Cota A: {Z_A:.3f} m", f"Cota PIV: {Z_I_parab:.3f} m",
+                 f"Cota B: {Z_B:.3f} m", f"Vértice x: {x_V:.3f} m, Z: {Z_V:.3f} m"]:
         pdf.cell(0, 8, line, ln=True)
     pdf.ln(5)
     # Gráfico
