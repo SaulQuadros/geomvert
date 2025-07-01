@@ -151,18 +151,22 @@ rows.append({
     "Tipo": "PCV"
 })
 
-# 2) Estacas inteiras entre PCV e PIV
+# 2) Estacas inteiras entre PCV e antes da estaca inteira de I (PIV)
 start_int = math.ceil(PCV_chain/20)
-for s in range(start_int, station_i):
+# inclui estação inteira da PIV somente se offset_i > 0
+end_int = station_i if offset_i > 0 else station_i - 1
+for s in range(start_int, end_int+1):
     chain = s*20
     x = chain - PCV_chain
-    y = i1*x - (g/(2*L))*x**2
+    y = i1 * x - (g/(2*L)) * x**2
     Z = Z_A + y
-    rows.append({ "Estaca": f"{s}+00",
-                  "Chainage (m)": chain,
-                  "Dist. desde A (m)": round(x,3),
-                  "Cota (m)": round(Z,3),
-                  "Tipo": "" })
+    rows.append({
+        "Estaca": f"{s}+00",
+        "Chainage (m)": chain,
+        "Dist. desde A (m)": round(x,3),
+        "Cota (m)": round(Z,3),
+        "Tipo": ""
+    })
 
 # 3) Linha PIV (cor azul)
 rows.append({
@@ -177,13 +181,15 @@ rows.append({
 for s in range(station_i+1, math.floor(PTV_chain/20)+1):
     chain = s*20
     x = chain - PCV_chain
-    y = i1*x - (g/(2*L))*x**2
+    y = i1 * x - (g/(2*L)) * x**2
     Z = Z_A + y
-    rows.append({ "Estaca": f"{s}+00",
-                  "Chainage (m)": chain,
-                  "Dist. desde A (m)": round(x,3),
-                  "Cota (m)": round(Z,3),
-                  "Tipo": "" })
+    rows.append({
+        "Estaca": f"{s}+00",
+        "Chainage (m)": chain,
+        "Dist. desde A (m)": round(x,3),
+        "Cota (m)": round(Z,3),
+        "Tipo": ""
+    })
 
 # 5) Linha PTV (cor vermelha)
 rows.append({
@@ -207,6 +213,7 @@ def highlight(row):
 df_style = df.style.apply(highlight, axis=1)
 
 st.subheader("Tabela de Estacas")
+st.dataframe(df_style)
 st.dataframe(df_style)
 
 # Função para criar PDF
