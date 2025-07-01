@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from fpdf import FPDF
 from io import BytesIO
+import math
 
 st.set_page_config(page_title="Concordância Vertical", layout="centered")
 
@@ -127,53 +128,97 @@ with col2:
     st.markdown(f"**Coordenada do vértice**: x = `{x_V:.3f} m`")
     st.markdown(f"**Cota do vértice**: Z = `{Z_V:.3f} m`")
 
-# Tabela de estacas entre A e B
+# Tabela de estacas entre A e B (inclui PCV, PIV e PTV com cores)
+# Cálculo das chainages
 stationI_m = station_i * 20 + offset_i
-PCV_chainage = stationI_m - L/2
-PTV_chainage = stationI_m + L/2
+PCV_chain = stationI_m - L/2
+PTV_chain = stationI_m + L/2
 
-# Backward stakes
-back_stakes = []
-for s in range(station_i, -1, -1):
-    if s * 20 >= PCV_chainage:
-        back_stakes.append(s)
-    else:
-        break
-# Forward stakes
-forward_stakes = []
-s = station_i + 1
-while s * 20 <= PTV_chainage:
-    forward_stakes.append(s)
-    s += 1
+# Estações + offsets de PCV e PTV
+pcv_station = int(math.floor(PCV_chain/20))
+pcv_offset  = PCV_chain - pcv_station*20
+ptv_station = int(math.floor(PTV_chain/20))
+ptv_offset  = PTV_chain - ptv_station*20
 
-stakes = list(reversed(back_stakes)) + forward_stakes
+rows = []
 
-# Build table
-data = []
-for s in stakes:
-    chain = s * 20
-    x = chain - PCV_chainage
-    y = i1 * x - (g/(2*L)) * x**2
+# 1) Linha PCV (cor vermelha)
+rows.append({
+    "Estaca": f"{pcv_station}+{pcv_offset:.2f}",
+    "Chainage (m)": round(PCV_chain,3),
+    "Dist. desde A (m)": 0.0,
+    "Cota (m)": round(Z_A,3),
+    "Tipo": "PCV"
+})
+
+# 2) Estacas inteiras entre PCV e PIV
+start_int = math.ceil(PCV_chain/20)
+for s in range(start_int, station_i):
+    chain = s*20
+    x = chain - PCV_chain
+    y = i1*x - (g/(2*L))*x**2
     Z = Z_A + y
-    data.append({
-        "Estaca": f"{s}+00",
-        "Chainage (m)": chain,
-        "Dist. desde A (m)": round(x, 3),
-        "Cota (m)": round(Z, 3)
-    })
+    rows.append({ "Estaca": f"{s}+00",
+                  "Chainage (m)": chain,
+                  "Dist. desde A (m)": round(x,3),
+                  "Cota (m)": round(Z,3),
+                  "Tipo": "" })
 
-df = pd.DataFrame(data)
+# 3) Linha PIV (cor azul)
+rows.append({
+    "Estaca": f"{station_i}+{offset_i:.2f}",
+    "Chainage (m)": round(stationI_m,3),
+    "Dist. desde A (m)": round(L/2,3),
+    "Cota (m)": round(Z_I_parab,3),
+    "Tipo": "PIV"
+})
+
+# 4) Estacas inteiras entre PIV e PTV
+for s in range(station_i+1, math.floor(PTV_chain/20)+1):
+    chain = s*20
+    x = chain - PCV_chain
+    y = i1*x - (g/(2*L))*x**2
+    Z = Z_A + y
+    rows.append({ "Estaca": f"{s}+00",
+                  "Chainage (m)": chain,
+                  "Dist. desde A (m)": round(x,3),
+                  "Cota (m)": round(Z,3),
+                  "Tipo": "" })
+
+# 5) Linha PTV (cor vermelha)
+rows.append({
+    "Estaca": f"{ptv_station}+{ptv_offset:.2f}",
+    "Chainage (m)": round(PTV_chain,3),
+    "Dist. desde A (m)": round(L,3),
+    "Cota (m)": round(Z_B,3),
+    "Tipo": "PTV"
+})
+
+df = pd.DataFrame(rows)
+
+# Função de estilo: PCV e PTV em vermelho, PIV em azul
+def highlight(row):
+    if row["Tipo"] in ["PCV","PTV"]:
+        return ['color: red']*len(df.columns)
+    if row["Tipo"] == "PIV":
+        return ['color: blue']*len(df.columns)
+    return ['']*len(df.columns)
+
+df_style = df.style.apply(highlight, axis=1)
+
 st.subheader("Tabela de Estacas")
-st.dataframe(df)
+st.dataframe(df_style)
 
-# PDF button (retain previous)
+# Função para criar PDF
 def create_pdf():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
+    # Identificação
     pdf.cell(0, 10, f"Projeto: {project_name}", ln=True)
     pdf.cell(0, 10, f"Usuário: {user_name}", ln=True)
     pdf.ln(5)
+    # Parâmetros
     pdf.cell(0, 8, "Parâmetros de entrada:", ln=True)
     pdf.cell(0, 8, f"Tipo de curva: {curva_tipo}", ln=True)
     pdf.cell(0, 8, f"Cota do PIV: {Z_I} m", ln=True)
@@ -182,23 +227,25 @@ def create_pdf():
     pdf.cell(0, 8, f"i2: {i2_valor:.2f}%", ln=True)
     pdf.cell(0, 8, f"Comprimento L: {L} m", ln=True)
     pdf.ln(5)
+    # Resultados
     pdf.cell(0, 8, "Resultados:", ln=True)
     pdf.cell(0, 8, f"Desnível (g): {g:.5f}", ln=True)
     pdf.cell(0, 8, f"Flecha (e): {e:.4f} m", ln=True)
     pdf.cell(0, 8, f"Cota A (PCV): {Z_A:.3f} m", ln=True)
-    pdf.cell(0, 8, f"Cota do PIV (parábola): {Z_I_parab:.3f} m", ln=True)
+    pdf.cell(0, 8, f"Cota do PIV: {Z_I_parab:.3f} m", ln=True)
     pdf.cell(0, 8, f"Cota B (PTV): {Z_B:.3f} m", ln=True)
     pdf.cell(0, 8, f"Vértice: x={x_V:.3f} m, Z={Z_V:.3f} m", ln=True)
     pdf.ln(5)
+    # Tabela de estacas
     pdf.cell(0, 8, "Tabela de Estacas:", ln=True)
-    # Add table lines
-    for row in data:
-        pdf.cell(0, 6, f"{row['Estaca']}: chain={row['Chainage (m)']} m, x={row['Dist. desde A (m)']} m, Z={row['Cota (m)']} m", ln=True)
+    for row in rows:
+        pdf.cell(0, 6, f"{row['Estaca']}: chain={row['Chainage (m)']}m, distancia={row['Dist. desde A (m)']}m, Z={row['Cota (m)']}m", ln=True)
     pdf.ln(5)
+    # Gráfico
     buf = BytesIO()
     fig.savefig(buf, format='PNG')
     buf.seek(0)
-    pdf.image(buf, x=10, y=None, w=pdf.w - 20)
+    pdf.image(buf, x=10, w=pdf.w-20)
     out = BytesIO()
     pdf.output(out)
     out.seek(0)
